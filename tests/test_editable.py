@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-import functools
 import os
 import pathlib
 import pkgutil
@@ -62,17 +61,12 @@ def test_collect(package_complex):
     assert tree['complex']['more']['__init__.py'] == os.path.join(root, 'complex', 'more', '__init__.py')
 
 
-@pytest.mark.parametrize(
-    'make_finder',
-    [_editable.MesonpyMetaFinder, functools.partial(_editable.MesonpyMetaFinder, verbose=True)]
-)
-def test_mesonpy_meta_finder(package_complex, tmp_path, make_finder):
+def test_mesonpy_meta_finder(package_complex, tmp_path):
     # build a package in a temporary directory
     mesonpy.Project(package_complex, tmp_path)
 
     # point the meta finder to the build directory
-    build_cmd = ['meson', 'compile'] if sys.platform == 'win32' else ['ninja']
-    finder = make_finder({'complex'}, os.fspath(tmp_path), build_cmd)
+    finder = _editable.MesonpyMetaFinder({'complex'}, os.fspath(tmp_path), ['ninja'])
 
     # check repr
     assert repr(finder) == f'MesonpyMetaFinder({str(tmp_path)!r})'
@@ -105,9 +99,27 @@ def test_mesonpy_meta_finder(package_complex, tmp_path, make_finder):
     finally:
         # remove finder from the meta path
         del sys.meta_path[0]
-        # unload complex module and all its submodules to be able to run parametrized tests without side-effects
-        for module in ['complex', 'complex.test', 'complex.namespace', 'complex.namespace.foo']:
-            sys.modules.pop(module, None)
+
+
+@pytest.mark.parametrize(
+    'build_cmd_args',
+    [
+        {'win32': [], 'non-win32': []},
+        {'win32': ['--ninja-args='], 'non-win32': ['-j1']},
+        {'win32': ['--ninja-args=-h', '--ninja-args=-j1'], 'non-win32': ['-j1', '-k2']},
+    ]
+)
+def test_mesonpy_meta_finder_verbose(package_complex, tmp_path, build_cmd_args):
+    # build a package in a temporary directory
+    mesonpy.Project(package_complex, tmp_path)
+
+    build_cmd = (['meson', 'compile'] + build_cmd_args['win32'] if sys.platform == 'win32'
+                 else ['ninja'] + build_cmd_args['non-win32'])
+
+    finder = _editable.MesonpyMetaFinder({'complex'}, os.fspath(tmp_path), build_cmd, verbose=True)
+    assert finder._work_to_do({})
+    assert finder._rebuild()
+    assert not finder._work_to_do({})
 
 
 def test_mesonpy_traversable():

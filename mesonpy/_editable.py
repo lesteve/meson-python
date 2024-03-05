@@ -323,7 +323,8 @@ class MesonpyMetaFinder(importlib.abc.MetaPathFinder):
                 dry_run_build_cmd = self._build_cmd.copy()
                 # Last --ninja-args overrides all the previous ones, so need to modify only the last one to add -n
                 last_ninja_index, last_ninja_args = ninja_index_and_arg_list[-1]
-                dry_run_build_cmd[last_ninja_index] = last_ninja_args + ',-n'
+                new_last_ninja_args = '--ninja-args=-n' if last_ninja_args == '--ninja-args=' else f"{last_ninja_args},-n"
+                dry_run_build_cmd[last_ninja_index] = new_last_ninja_args
 
         p = subprocess.run(dry_run_build_cmd, cwd=self._build_path, env=env, capture_output=True, check=True)
         return b'ninja: no work to do.' not in p.stdout and b'samu: nothing to do' not in p.stdout
@@ -340,8 +341,7 @@ class MesonpyMetaFinder(importlib.abc.MetaPathFinder):
             # We want to show some output only if there is some work to do
             if self._work_to_do(env):
                 module_names = ' '.join(sorted(self._top_level_modules))
-                build_command = ' '.join(self._build_cmd)
-                print(f'meson-python: building {module_names} with {build_command!r}', flush=True)
+                print(f'meson-python: building {module_names} with {self._build_cmd}', flush=True)
                 subprocess.run(self._build_cmd, cwd=self._build_path, env=env)
         else:
             subprocess.run(self._build_cmd, cwd=self._build_path, env=env, stdout=subprocess.DEVNULL)
