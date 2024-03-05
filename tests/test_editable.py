@@ -117,9 +117,9 @@ def test_mesonpy_meta_finder_verbose(package_complex, tmp_path, build_cmd_args):
                  else ['ninja'] + build_cmd_args['non-win32'])
 
     finder = _editable.MesonpyMetaFinder({'complex'}, os.fspath(tmp_path), build_cmd, verbose=True)
-    assert finder._work_to_do({})
+    assert finder._work_to_do(os.environ)
     assert finder._rebuild()
-    assert not finder._work_to_do({})
+    assert not finder._work_to_do(os.environ)
 
 
 def test_mesonpy_traversable():
